@@ -1,6 +1,6 @@
 name: Kripto Fiyat Alarmı
 description: Belirli bir kripto para, hedef fiyatı geçti mi kontrol eder.
-entry_point: app:app
+entry_point: app:main
 parameters:
   coin:
     type: string
