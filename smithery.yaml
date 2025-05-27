@@ -1,4 +1,11 @@
-name: crypto-price-alert
-description: Cryptocurrency price alert system that checks if target prices are reached
+name: Kripto Fiyat Alarmı
+description: Belirli bir kripto para, hedef fiyatı geçti mi kontrol eder.
 entry_point: app:app
+parameters:
+  coin:
+    type: string
+    description: İzlenecek kripto para (örnek: bitcoin)
+  target_price:
+    type: float
+    description: Hedef TRY fiyatı
 
