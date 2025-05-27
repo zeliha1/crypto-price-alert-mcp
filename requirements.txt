@@ -1,3 +1,2 @@
-fastapi
-uvicorn
+# MCP server sadece built-in Python modüllerini kullanıyor
 

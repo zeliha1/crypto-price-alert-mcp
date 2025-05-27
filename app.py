@@ -1,12 +1,8 @@
-import json
-import os
 import asyncio
-from fastapi import FastAPI, Request, Response, Header
-from fastapi.responses import StreamingResponse
+import json
+import sys
+from typing import Any, Dict
 from alert import check_price_alert
-from typing import Any, Dict, Optional
-
-app = FastAPI()
 
 class MCPServer:
     def __init__(self):
@@ -37,23 +33,7 @@ class MCPServer:
         request_id = request.get("id")
 
         try:
-            if method == "initialize":
-                return {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "result": {
-                        "protocolVersion": "2025-03-26",
-                        "capabilities": {
-                            "tools": {}
-                        },
-                        "serverInfo": {
-                            "name": "crypto-price-alert-server",
-                            "version": "1.0.0"
-                        }
-                    }
-                }
-
-            elif method == "tools/list":
+            if method == "tools/list":
                 return {
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -101,91 +81,37 @@ class MCPServer:
                 }
             }
 
-mcp_server = MCPServer()
+async def main():
+    server = MCPServer()
 
-async def sse_generator(response_data: Dict[str, Any]):
-    """Generate SSE stream for response"""
-    yield f"data: {json.dumps(response_data)}\n\n"
+    # Read JSON-RPC requests from stdin
+    while True:
+        try:
+            line = await asyncio.get_event_loop().run_in_executor(None, sys.stdin.readline)
+            if not line:
+                break
 
-@app.post("/mcp")
-async def mcp_post_endpoint(
-    request: Request,
-    accept: Optional[str] = Header(None)
-):
-    """MCP Streamable HTTP POST endpoint"""
-    try:
-        body = await request.body()
-        request_data = json.loads(body.decode())
+            request = json.loads(line.strip())
+            response = await server.handle_request(request)
 
-        # Handle single request or batch
-        if isinstance(request_data, list):
-            # Batch request - not implemented for simplicity
-            return Response(
-                content=json.dumps({"error": "Batch requests not supported"}),
-                status_code=400,
-                media_type="application/json"
-            )
+            # Write response to stdout
+            print(json.dumps(response))
+            sys.stdout.flush()
 
-        response_data = await mcp_server.handle_request(request_data)
-
-        # Check if client accepts SSE
-        if accept and "text/event-stream" in accept:
-            return StreamingResponse(
-                sse_generator(response_data),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
+        except json.JSONDecodeError:
+            continue
+        except Exception as e:
+            error_response = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32700,
+                    "message": f"Parse error: {str(e)}"
                 }
-            )
-        else:
-            return Response(
-                content=json.dumps(response_data),
-                media_type="application/json"
-            )
-
-    except Exception as e:
-        error_response = {
-            "jsonrpc": "2.0",
-            "id": None,
-            "error": {
-                "code": -32700,
-                "message": f"Parse error: {str(e)}"
             }
-        }
-        return Response(
-            content=json.dumps(error_response),
-            media_type="application/json"
-        )
-
-@app.get("/mcp")
-async def mcp_get_endpoint(
-    accept: Optional[str] = Header(None)
-):
-    """MCP Streamable HTTP GET endpoint for SSE"""
-    if accept and "text/event-stream" in accept:
-        async def sse_stream():
-            # Keep connection alive for server-initiated messages
-            while True:
-                await asyncio.sleep(30)  # Heartbeat every 30 seconds
-                yield "data: {}\n\n"  # Empty heartbeat
-
-        return StreamingResponse(
-            sse_stream(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-            }
-        )
-    else:
-        return Response(
-            status_code=405,
-            content="Method Not Allowed - Use POST for JSON or GET with Accept: text/event-stream"
-        )
+            print(json.dumps(error_response))
+            sys.stdout.flush()
 
 if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    asyncio.run(main())
 
