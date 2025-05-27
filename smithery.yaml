@@ -1,12 +1,6 @@
 startCommand:
-  type: stdio
+  type: http
   configSchema:
     type: object
     properties: {}
-  commandFunction: |
-    (config) => ({
-      command: "python",
-      args: ["app.py"],
-      env: {}
-    })
 

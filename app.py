@@ -1,8 +1,10 @@
-import asyncio
 import json
-import sys
-from typing import Any, Dict
+import os
+from fastapi import FastAPI, Request, Response
 from alert import check_price_alert
+from typing import Any, Dict
+
+app = FastAPI()
 
 class MCPServer:
     def __init__(self):
@@ -81,37 +83,37 @@ class MCPServer:
                 }
             }
 
-async def main():
-    server = MCPServer()
+mcp_server = MCPServer()
 
-    # Read JSON-RPC requests from stdin
-    while True:
-        try:
-            line = await asyncio.get_event_loop().run_in_executor(None, sys.stdin.readline)
-            if not line:
-                break
+@app.post("/mcp")
+async def mcp_endpoint(request: Request):
+    """MCP HTTP endpoint for Smithery"""
+    try:
+        body = await request.body()
+        request_data = json.loads(body.decode())
 
-            request = json.loads(line.strip())
-            response = await server.handle_request(request)
+        response_data = await mcp_server.handle_request(request_data)
 
-            # Write response to stdout
-            print(json.dumps(response))
-            sys.stdout.flush()
-
-        except json.JSONDecodeError:
-            continue
-        except Exception as e:
-            error_response = {
-                "jsonrpc": "2.0",
-                "id": None,
-                "error": {
-                    "code": -32700,
-                    "message": f"Parse error: {str(e)}"
-                }
+        return Response(
+            content=json.dumps(response_data),
+            media_type="application/json"
+        )
+    except Exception as e:
+        error_response = {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {
+                "code": -32700,
+                "message": f"Parse error: {str(e)}"
             }
-            print(json.dumps(error_response))
-            sys.stdout.flush()
+        }
+        return Response(
+            content=json.dumps(error_response),
+            media_type="application/json"
+        )
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import uvicorn
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
 
