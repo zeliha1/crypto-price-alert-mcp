@@ -1,11 +1,12 @@
-name: Kripto Fiyat Alarmı
-description: Belirli bir kripto para, hedef fiyatı geçti mi kontrol eder.
-entry_point: app:main
-parameters:
-  coin:
-    type: string
-    description: İzlenecek kripto para (örnek: bitcoin)
-  target_price:
-    type: float
-    description: Hedef TRY fiyatı
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties: {}
+  commandFunction: |
+    (config) => ({
+      command: "python",
+      args: ["app.py"],
+      env: {}
+    })
 
